@@ -1,0 +1,737 @@
+
+                一、客户端界面的设计和编写
+                1.1  对话框，列表控件的伸缩
+
+
+1.新建一个工程，看操作  我们必须给工程起一个响亮的名字 :-D  就叫PCRemote吧
+2.添加最大化窗口，最小化窗口的属性
+3.更改对话框到适当大小
+4.添加服务端连接后显示的列表控件IDC_ONLINE，日志列表控件IDC_MESSAGE
+5.演示伸缩窗口，最大化时列表不能伸缩
+6.添加列表控件变量m_CList_Online,m_CList_Message
+7.相应对话框改变大小的消息WM_SIZE就是 向对话框抛出这个消息对话框就会改变大小，我们先相应这个消息，然后再把这个消息
+  向下传递  看演示
+8.写入更改列表大小的代码
+       if (m_CList_Online.m_hWnd!=NULL)
+	{
+		CRect rc;
+		rc.left=1;       //列表的左坐标
+		rc.top=80;       //列表的上坐标
+		rc.right=cx-1;  //列表的右坐标
+		rc.bottom=cy-160;  //列表的下坐标
+		m_CList_Online.MoveWindow(rc);
+	}
+	if (m_CList_Message.m_hWnd!=NULL)
+	{
+		CRect rc;
+		rc.left=1;        //列表的左坐标
+		rc.top=cy-156;    //列表的上坐标
+		rc.right=cx-1;    //列表的右坐标
+		rc.bottom=cy-6;  //列表的下坐标
+		m_CList_Message.MoveWindow(rc);
+	}
+9.示范伸缩
+10.伸缩同原来的有差别，介绍一个小技巧 在OnInitDialog:
+      CRect rect;
+	GetWindowRect(&rect);
+	rect.bottom+=20;
+	MoveWindow(rect);
+11.结束。。。。。。。。。。。
+
+
+                1.2  加入列表的列名称
+
+1.参考gh0st的列表中的列名:
+   0IP 1所在区域   2计算机名/备注  3操作系统  4CPU  5摄像头  6Ping
+
+2.上一节我们为列表控件添加变量，我们来查看变量的类型:
+  CListCtrl 类 查看MSDN  找到int InsertColumn(
+                                         int nCol,                  //列的顺序
+                                         LPCTSTR lpszColumnHeading, //列的名字
+                                         int nFormat = LVCFMT_LEFT,  //列对齐的方式 LVCFMT_LEFT, LVCFMT_RIGHT,LVCFMT_CENTER
+                                         int nWidth = -1,            //列的宽度
+                                         int nSubItem = -1           //与之联系的子条目 默认为-1 我们不用写
+                                         );
+3.有了这些我们可以现在就写入代码了，但请等一下我们来考虑一下以后的扩展问题，假如我们要加入新的列那会不会很麻烦，我们每一个列都写入了固定的
+  顺序(0--6)没有考虑扩展，比如在CPU列的后面加入显示内存大小，那么加入的就是第5列，而第5列恰好是摄头，这样显示的数据就会混乱(其实这个正是我写
+   PCRat时犯的错误)，解决这个问题的方式就是用枚举enum 写入列的顺序时不写入硬编码(0----6)而是写入枚举成员这样我们只需很小的改动就能达到目的。
+
+  (唠叨一下) 很多知识都是这个样，学习到的知识只有到实践中才体会到用处很大，枚举变量就是一个例子，我开始学习时感觉这个一点用处都没有，但在实践中感觉用
+枚举解决问题更简单。
+4.因为这个列表比较重要所以要放到一个每一个文件都能访问到的文件很自然的就是stdafx.h
+  enum
+{
+	ONLINELIST_IP=0,          //IP的列顺序
+	ONLINELIST_ADDR,          //地址
+	ONLINELIST_COMPUTER_NAME, //计算机名/备注
+	ONLINELIST_OS,           //操作系统
+	ONLINELIST_CPU,          //CPU
+	ONLINELIST_VIDEO,       //摄像头
+	ONLINELIST_PING          //PING
+};
+5.处理列表的代码应该统一放在一处，添加列表处理的代码InitList()
+6.写入加入列表列名的代码:
+    列表的名字与列表的宽度是同一一对应的关系，以后为了以后修改方便建立这样的一个结构体:
+ typedef struct
+{
+	char	*title;           //列表的名称
+	int		nWidth;   //列表的宽度
+}COLUMNSTRUCT;
+
+然后建立这个结构体变量的数组
+
+   COLUMNSTRUCT g_Column_Data[] = 
+{
+	{"IP",				148	},
+	{"区域",			150	},
+	{"计算机名/备注",	160	},
+	{"操作系统",		128	},
+	{"CPU",				80	},
+	{"摄像头",			81	},
+	{"PING",			81	}
+};
+添加全局变量int g_Column_Count=7; //列表的个数
+
+7.在initList中写入加入列表列名称的代码并解释:
+     for (int i = 0; i < g_Column_Count; i++)
+	{
+		m_CList_Online.InsertColumn(i, g_Column_Data[i].title,g_Column_Data[i].nWidth);
+	}
+
+
+
+8在Oninitdlg中写入InitList()
+9.改变列表控件的属性 ICon  改为Report
+
+10.同样的方法改动日志消息的列表控件看操作
+  //变量声明
+   int g_Column_Count_Online=7; //列表的个数
+
+COLUMNSTRUCT g_Column_Data_Message[] = 
+{
+	{"信息类型",		68	},
+	{"时间",			100	},
+	{"信息内容",	    660	}
+};
+
+
+//InitList
+
+for (int i = 0; i < g_Column_Count_Message; i++)
+	{
+		m_CList_Message.InsertColumn(i, g_Column_Data_Message[i].title,LVCFMT_CENTER,g_Column_Data_Message[i].nWidth);
+	}
+
+
+11.改变列表控件的属性 ICon  改为Report
+
+
+                1.3 列表的列宽度支持伸缩 
+
+
+
+
+
+1.CListCtrl  SetColumnWidth   查看MSDN
+             BOOL SetColumnWidth(
+                             int nCol,             //列索引
+                             int cx                //列宽度
+             );
+2.声明列的总宽度:
+            int g_Column_Online_Width=0;  //列总宽度
+
+3.得到列的总宽度 initlist中:
+           g_Column_Online_Width+=g_Column_Online_Data[i].nWidth;       //得到总宽度
+
+4.在OnSize 添加代码:
+          double dcx=cx;     //对话框的总宽度
+
+          for(int i=0;i<g_Column_Online_Count;i++){                   //遍历每一个列
+			double dd=g_Column_Online_Data[i].nWidth;     //得到当前列的宽度
+			dd/=g_Column_Online_Width;                    //看一看当前宽度占总长度的几分之几
+			dd*=dcx;                                       //用原来的长度乘以所占的几分之几得到当前的宽度
+			int lenth=dd;                                   //转换为int 类型
+			m_CList_Online.SetColumnWidth(i,(lenth));        //设置当前的宽度
+		}
+5.解释为什么用double
+              double   0.1        int 0 
+                90.23232
+6.改变日志的列表宽度
+      (1)int g_Column_Message_Width=0;  //列总宽度
+       (2)g_Column_Message_Width+=g_Column_Message_Data[i].nWidth;       //得到总宽度
+
+   for(int i=0;i<g_Column_Online_Count;i++){                   //遍历每一个列
+			double dd=g_Column_Online_Data[i].nWidth;     //得到当前列的宽度
+			dd/=g_Column_Online_Width;                    //看一看当前宽度占总长度的几分之几
+			dd*=dcx;                                       //用原来的长度乘以所占的几分之几得到当前的宽度
+			int lenth=dd;                                   //转换为int 类型
+			m_CList_Online.SetColumnWidth(i,(lenth));        //设置当前的宽度
+		}
+
+
+                1.4 列表中添加条目
+
+
+
+1.CListCtrl    InsertItem  插入条目
+               int InsertItem(
+                         int nItem,              //插入哪一行
+                         LPCTSTR lpszItem        //该行0列显示的字符
+               );
+
+              SetItemText         设置哪个列的字符
+              BOOL SetItemText(
+                          int nItem,                   //改动那个行
+                          int nSubItem,                //该行中那个子列
+                          LPCTSTR lpszText             //要设置的字符
+              );
+
+2.列表设计思路:
+             (1)服务端上线后要显示在列表中，这样有一个统一的函数来处理会使代码更加简洁。
+             (2)消息显示分为成功失败两种，还要在其中显示消息产生的时间，这样也应该有一个统一的函数来处理。
+                 
+3.上线列表添加处理:
+             void CPCRemoteDlg::AddList(CString strIP, CString strAddr, CString strPCName, CString strOS, CString strCPU, CString strVideo, CString strPing)
+{
+	m_CList_Online.InsertItem(0,strIP);           //默认为0行  这样所有插入的新列都在最上面
+	m_CList_Online.SetItemText(0,ONLINELIST_ADDR,strAddr);      //设置列的显示字符   这里 ONLINELIST_ADDR等 为第二节课中的枚举类型 用这样的方法
+	m_CList_Online.SetItemText(0,ONLINELIST_COMPUTER_NAME,strPCName); //解决问题会避免以后扩展时的冲突
+	m_CList_Online.SetItemText(0,ONLINELIST_OS,strOS); 
+	m_CList_Online.SetItemText(0,ONLINELIST_CPU,strCPU);
+	m_CList_Online.SetItemText(0,ONLINELIST_VIDEO,strVideo);
+	m_CList_Online.SetItemText(0,ONLINELIST_PING,strPing); 
+}
+
+4.添加日志消息的处理:
+    // show msg 
+void CPCRemoteDlg::ShowMessage(bool bIsOK, CString strMsg)
+{
+	CString strIsOK,strTime;
+	CTime t=CTime::GetCurrentTime();
+	strTime=t.Format("%H:%M:%S");
+	if (bIsOK)
+	{
+		strIsOK="执行成功";
+	}else{
+		strIsOK="执行失败";
+	}
+	 m_CList_Message.InsertItem(0,strIsOK);
+	 m_CList_Message.SetItemText(0,1,strTime);
+	 m_CList_Message.SetItemText(0,2,strMsg);
+}
+
+5.添加伪上线，和日志的测试代码,在没有加入gh0st传输内核之前是要自己测试的，所以要加入一个用于测试的函数:
+       void CPCRemoteDlg::Test(void)
+{
+	AddList("192.168.0.1","本机局域网","Lang","Windows7","2.2GHZ","有","123232");
+	ShowMessage(true,"软件初始化成功...");
+}
+  然后在OnInitDialog  中添加:
+                           Test();
+6.点击时整个列都是选中状态
+     InitList():中加入代码:
+       m_CList_Online.SetExtendedStyle(LVS_EX_FULLROWSELECT);
+
+       m_CList_Message.SetExtendedStyle(LVS_EX_FULLROWSELECT);
+
+
+
+                1.5 列表中显示弹出菜单
+
+
+1.添加菜单资源
+2.功能菜单项并写入相应的菜单ID
+3.显示菜单
+   (1)参考gh0st代码,看一下gh0st是怎样显示菜单的
+       a.找到主菜单
+       b.查看主菜单的ID
+       c.搜索IDR_LIST
+       d.分析代码:
+        CMenu	popup;                  //声明一个菜单变量
+	popup.LoadMenu(IDR_LIST);       //载入菜单资源
+	CMenu*	pM = popup.GetSubMenu(0);  //得到菜单项
+	CPoint	p;
+	GetCursorPos(&p);                    //得到鼠标指针的位置
+	int	count = pM->GetMenuItemCount();       //得到菜单的个数
+	if (m_pListCtrl->GetSelectedCount() == 0)  //如果没有选中列表中的条目
+	{
+		for (int i = 0; i < count - 2; i++)       //遍历每一个菜单
+		{
+			pM->EnableMenuItem(i, MF_BYPOSITION | MF_DISABLED | MF_GRAYED);  //该项变灰
+		}
+		pM->EnableMenuItem(count - 1, MF_BYPOSITION | MF_DISABLED | MF_GRAYED);
+
+	}
+	
+	// 全选
+	if (m_pListCtrl->GetItemCount() > 0)    //列表中的条目项大于0     
+		pM->EnableMenuItem(count - 2, MF_BYPOSITION | MF_ENABLED);    //激活倒数第二个菜单 
+	else
+		pM->EnableMenuItem(count - 2, MF_BYPOSITION | MF_DISABLED | MF_GRAYED);  //否则变灰
+	
+	pM->TrackPopupMenu(TPM_LEFTALIGN, p.x, p.y, this);        //在指定位置显示菜单
+}
+   (2)添加我们的代码
+       a.添加右键列表的响应函数
+       b.添加代码
+           CMenu	popup;
+	popup.LoadMenu(IDR_MENU_ONLINE);
+	CMenu*	pM = popup.GetSubMenu(0);
+	CPoint	p;
+	GetCursorPos(&p);
+	int	count = pM->GetMenuItemCount();
+	if (m_CList_Online.GetSelectedCount() == 0)       //如果没有选中
+	{ 
+		for (int i = 0; i < count; i++)
+		{
+			pM->EnableMenuItem(i, MF_BYPOSITION | MF_DISABLED | MF_GRAYED);          //菜单全部变灰
+		}
+
+	}
+	pM->TrackPopupMenu(TPM_LEFTALIGN, p.x, p.y, this);
+4.演示
+ 
+
+
+                1.6 添加菜单消息响应，从列表中删除条目
+
+
+
+1.添加菜单消息响应的函数:
+         终端管理     进程管理    窗口管理    桌面管理     文件管理    语音管理     视频管理   服务管理     注册表管理
+2.删除列表中的条目:
+      CListCtrl       (1)DeleteItem
+                    BOOL DeleteItem(
+                                 int nItem              //列表的索引  从0开始
+                   );
+                     (2)GetSelectionMark
+                       int GetSelectionMark( );        //得到用户选中的条目索引
+3.添加下线菜单  断开连接   ID:   IDM_ONLINE_DELETE
+4.添加菜单响应消息，添加代码:
+                     int iSelect=m_CList_Online.GetSelectionMark( );
+	                         m_CList_Online.DeleteItem(iSelect);
+5.产生下线日志: 
+             CListCtrl     GetItemText 
+                           CString GetItemText(
+                                             int nItem,          //哪一行
+                                             int nSubItem        //行中的那个子列
+                           ) const;
+
+6.接着添加代码:
+           CString strIP;
+	int iSelect=m_CList_Online.GetSelectionMark( );
+	strIP=m_CList_Online.GetItemText(iSelect,ONLINELIST_IP);
+	m_CList_Online.DeleteItem(iSelect);
+	strIP+="断开连接";
+	ShowMessage(true,strIP);
+7.演示
+ 
+ 
+
+
+                1.7 为对话框添加菜单栏并添加事件响应
+
+
+
+1.创建菜单的资源  ID:  IDR_MENU_MAIN
+
+2.添加菜单: 文件--退出(IDM_MAIN_CLOSE)
+            设置--参数设置(IDM_MAIN_SET)----生成服务端(IDM_MAIN_BUILD)
+            帮助--关于(IDM_MAIN_ABOUT)
+3.为对话框添加代码,显示菜单:
+       (1) 认识几个API函数:
+              HMENU LoadMenu(                    //载入菜单 
+                  HINSTANCE hInstance,          //资源所在文件模块的句柄标识
+                   LPCTSTR lpMenuName           //资源ID
+               );
+                BOOL SetMenu(                  //为窗口设置菜单
+                  HWND hWnd,                 //要设置菜单的窗口句柄
+                  HMENU hMenu                //菜单标识
+                );
+               BOOL DrawMenuBar(          //显示菜单
+                       HWND hWnd          //要显示菜单的窗口句柄
+                );
+        
+      (2)添加添加菜单的代码  oninitdialog
+            HMENU hmenu;
+	hmenu=LoadMenu(NULL,MAKEINTRESOURCE(IDR_MENU_MAIN));  //载入菜单资源
+	::SetMenu(this->GetSafeHwnd(),hmenu);                  //为窗口设置菜单
+	::DrawMenuBar(this->GetSafeHwnd());                    //显示菜单
+3.为每一个菜单添加事件响应
+       
+4.添加代码:
+      退出菜单代码:
+             BOOL PostMessage(          HWND hWnd,             //标识向那个窗口发送消息
+                                        UINT Msg,              //消息内容
+                                        WPARAM wParam,         //消息参数
+                                         LPARAM lParam          //消息参数
+            );
+
+             PostMessage(WM_CLOSE,0,0);
+
+     关于菜单代码:
+           CAboutDlg dlgAbout;
+           dlgAbout.DoModal();
+    其他代码用MessageBox代替
+
+5演示
+
+
+                1.8 为对话框添加状态条并在态条上显示文字
+
+
+
+1.创建字符串资源  ID:  IDR_STATUSBAR_STRING
+
+2.添加状态条变量:
+        CStatusBar  m_wndStatusBar;              //状态条
+3.查看MSDN:
+        CStatusBar  SetIndicators      
+                    BOOL SetIndicators(           //在状态条中加入对应字符串ID
+                          const UINT* lpIDArray,   //字符串ID         
+                                   int nIDCount     //个数
+                    );
+                    
+                    void SetPaneInfo(         //设置状态条的显示状态
+                                  int nIndex,     //状态条的索引
+                                  UINT& nID,      //状态条的字符ID
+                                  UINT& nStyle,    //状态条的样式
+                                   int& cxWidth    //状态条的宽度
+                    ) const;
+
+
+ 
+4.写入代码创建状态条的代码:
+      (1)  创建字符ID的数组
+               static UINT indicators[] =
+               {
+	           IDR_STATUSBAR_STRING
+                   };
+       (2)添加CreatStatusBar函数并写入代码:
+            if (!m_wndStatusBar.Create(this) ||
+		!m_wndStatusBar.SetIndicators(indicators,
+		sizeof(indicators)/sizeof(UINT)))                    //创建状态条并设置字符资源的ID
+	     {
+		TRACE0("Failed to create status bar\n");
+		return ;      // fail to create
+	         }
+	       CRect rc;
+	       ::GetWindowRect(m_wndStatusBar.m_hWnd,rc);             
+	       m_wndStatusBar.MoveWindow(rc);                              //移动状态条到指定位置
+
+       (3)在OnSize 中添加代码:
+              if(m_wndStatusBar.m_hWnd!=NULL){    //当对话框大小改变时 状态条大小也随之改变
+		CRect rc;
+		rc.top=cy-20;
+		rc.left=0;
+		rc.right=cx;
+		rc.bottom=cy;
+		m_wndStatusBar.MoveWindow(rc);
+		m_wndStatusBar.SetPaneInfo(0, m_wndStatusBar.GetItemID(0),SBPS_POPOUT, cx-10);
+	     }
+          
+
+
+5.写入状态上显示文字的代码:
+           .h中添加变量 int iCount
+
+       CString strStatusMsg;
+	if (strMsg.Find("上线")>0)         //处理上线还是下线消息
+	{
+		iCount++;
+	}else if (strMsg.Find("下线")>0)
+	{
+		iCount--;
+	}else if (strMsg.Find("断开")>0)
+	{
+		iCount--;
+	}
+	iCount=(iCount<=0?0:iCount);         //防止iCount 有-1的情况
+	strStatusMsg.Format("有%d个主机在线",iCount);
+	m_wndStatusBar.SetPaneText(0,strStatusMsg);   //在状态条上显示文字
+
+6.列表中添加条目时产生日志:
+      Addlist 中添加
+            ShowMessage(true,strIP+"主机上线");
+
+7.演示
+
+
+
+
+
+
+                1.9 为对话框添加入工具条
+
+
+
+1.创建工具条资源  ID:  IDR_TOOLBAR_MAIN
+                  共12个工具条  9+3
+2.添加BMP资源:
+                 ID:  IDB_BITMAP_MAIN
+3.复制TrueColorToolBar文件，添加CTrueColorToolBar类.
+4.添加:
+       #include "TrueColorToolBar.h"
+5.声明变量:
+      CTrueColorToolBar m_ToolBar; 
+
+6.添加CreateToolBar()函数
+
+7.分析CTrueColorToolBar类:
+                        继承CToolBar
+8.查看MSDN  CToolBar类:
+9.CreateToolBar()函数中写入代码:
+        if (!m_ToolBar.CreateEx(this, TBSTYLE_FLAT, WS_CHILD | WS_VISIBLE | CBRS_TOP
+		| CBRS_GRIPPER | CBRS_TOOLTIPS | CBRS_FLYBY | CBRS_SIZE_DYNAMIC) ||
+		!m_ToolBar.LoadToolBar(IDR_TOOLBAR_MAIN))
+	{
+		TRACE0("Failed to create toolbar\n");
+		return;      // fail to create
+	}
+	m_ToolBar.ModifyStyle(0, TBSTYLE_FLAT);    //Fix for WinXP
+	m_ToolBar.LoadTrueColorToolBar
+		(
+		48,    //加载真彩工具条
+		IDB_BITMAP_MAIN,
+		IDB_BITMAP_MAIN,
+		IDB_BITMAP_MAIN
+		);
+	RECT rt,rtMain;
+	GetWindowRect(&rtMain);
+	rt.left=0;
+	rt.top=0;
+	rt.bottom=80;
+	rt.right=rtMain.right-rtMain.left+10;
+	m_ToolBar.MoveWindow(&rt,TRUE);
+
+	m_ToolBar.SetButtonText(0,"终端管理");  
+	m_ToolBar.SetButtonText(1,"进程管理"); 
+	m_ToolBar.SetButtonText(2,"窗口管理"); 
+	m_ToolBar.SetButtonText(3,"桌面管理"); 
+	m_ToolBar.SetButtonText(4,"文件管理"); 
+	m_ToolBar.SetButtonText(5,"语音管理"); 
+	m_ToolBar.SetButtonText(6,"视频管理"); 
+	m_ToolBar.SetButtonText(7,"服务管理"); 
+	m_ToolBar.SetButtonText(8,"注册表管理"); 
+	m_ToolBar.SetButtonText(10,"参数设置"); 
+	m_ToolBar.SetButtonText(11,"生成服务端"); 
+	m_ToolBar.SetButtonText(12,"帮助"); 
+	RepositionBars(AFX_IDW_CONTROLBAR_FIRST,AFX_IDW_CONTROLBAR_LAST,0);
+
+
+10.OnSize中添加代码:
+        if(m_ToolBar.m_hWnd!=NULL)              //工具条
+	{
+		CRect rc;
+		rc.top=rc.left=0;
+		rc.right=cx;
+		rc.bottom=80;
+		m_ToolBar.MoveWindow(rc);     //设置工具条大小位置
+	}
+
+
+
+11.Oninitdialog 中添加CreateToolBar
+12.vs系列中工具条不能添加消息响应，然后应该给工具条添加菜单的消息，省去好多麻烦。
+
+13.演示。
+
+
+
+
+                1.10 为程序添加系统托盘
+
+
+
+1.创建菜单资源  ID:  IDR_MENU_NOTIFY
+                添加子菜单  显示  IDM_NOTIFY_SHOW
+                            退出  IDM_NOTIFY_CLOSE
+2.认识一个API
+        Shell_NotifyIcon
+         BOOL Shell_NotifyIcon(                    //向系统托盘中加入图标
+                           DWORD dwMessage,         //状态           
+                           PNOTIFYICONDATA lpdata   //含有图标  消息响应 的一个结构体
+         );
+
+ 3.认识NOTIFYICONDATA  结构体:
+           typedef struct _NOTIFYICONDATA {
+    DWORD cbSize;       //结构体自身大小
+    HWND hWnd;          //托盘的父窗口  托盘发出的消息由哪一个窗口响应
+    UINT uID;           //显示图标的ID
+    UINT uFlags;         //托盘的状态 (如有图标，有气泡提示，有消息响应等)
+    UINT uCallbackMessage; //托盘事件的消息响应函数
+    HICON hIcon;            //图标的变量
+    TCHAR szTip[64];        //气泡的显示文字
+    DWORD dwState;          //图标的显示状态
+    DWORD dwStateMask;      //图标的显示状态
+    TCHAR szInfo[256];      //气泡的显示文字  (可以忽略)
+    union {
+        UINT uTimeout;
+        UINT uVersion;
+    };
+    TCHAR szInfoTitle[64];
+    DWORD dwInfoFlags;
+    GUID guidItem;
+    HICON hBalloonIcon;
+} NOTIFYICONDATA, *PNOTIFYICONDATA;
+
+4.在oninitdialog函数中写入加入系统脱盘的代码:
+        
+          nid.cbSize = sizeof(nid);     //大小赋值
+	nid.hWnd = m_hWnd;           //父窗口
+	nid.uID = IDR_MAINFRAME;     //icon  ID
+	nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;   //托盘所拥有的状态
+	nid.uCallbackMessage = UM_ICONNOTIFY;            //回调消息
+	nid.hIcon = m_hIcon;                            //icon 变量
+	CString str="PCRemote远程协助软件.........";       //气泡提示
+	lstrcpyn(nid.szTip, (LPCSTR)str, sizeof(nid.szTip) / sizeof(nid.szTip[0]));
+	Shell_NotifyIcon(NIM_ADD, &nid);   //显示托盘
+5.演示 ，在窗口销毁时托盘依然存在
+
+6.添加WM_CLOSE消息并写入代码:
+      Shell_NotifyIcon(NIM_DELETE, &nid); //销毁图标
+
+7.stdafx.h文件中加入自定义消息的定义
+     //自定义消息
+enum
+{
+	UM_ICONNOTIFY= WM_USER+0x100,
+};
+
+
+
+
+8.声明消息处理函数:
+     afx_msg void OnIconNotify(WPARAM wParam,LPARAM lParam);
+
+
+9.  cpp文件中写入代码:
+       void CPCRemoteDlg::OnIconNotify(WPARAM wParam, LPARAM lParam)
+{
+	switch ((UINT)lParam)
+	{
+	case WM_LBUTTONDOWN: // click or dbclick left button on icon
+	case WM_LBUTTONDBLCLK: // should show desktop
+		if (!IsWindowVisible()) 
+			ShowWindow(SW_SHOW);
+		else
+			ShowWindow(SW_HIDE);
+		break;
+	case WM_RBUTTONDOWN: // click right button, show menu
+		CMenu menu;
+		menu.LoadMenu(IDR_MENU_NOTIFY);
+		CPoint point;
+		GetCursorPos(&point);
+		SetForegroundWindow();
+		menu.GetSubMenu(0)->TrackPopupMenu(
+			TPM_LEFTBUTTON|TPM_RIGHTBUTTON, 
+			point.x, point.y, this, NULL); 
+		PostMessage(WM_USER, 0, 0);
+		break;
+	}
+}
+
+
+10.添加消息响应:
+    ON_MESSAGE(UM_ICONNOTIFY, (LRESULT (__thiscall CWnd::* )(WPARAM,LPARAM))OnIconNotify)  
+
+
+
+11.添加显示菜单消息响应
+    
+12.演示
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
